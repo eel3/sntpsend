@@ -1,0 +1,4 @@
+sntpsend
+========
+
+Tiny SNTP client
