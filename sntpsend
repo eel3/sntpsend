@@ -1,0 +1,266 @@
+#!/usr/bin/env perl
+# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.0.0.20131219
+
+# Copyright (c) 2014 eel3
+#
+# This software is provided 'as-is', without any express or implied
+# warranty. In no event will the authors be held liable for any damages
+# arising from the use of this software.
+#
+# Permission is granted to anyone to use this software for any purpose,
+# including commercial applications, and to alter it and redistribute it
+# freely, subject to the following restrictions:
+#
+#     1. The origin of this software must not be misrepresented; you must not
+#     claim that you wrote the original software. If you use this software
+#     in a product, an acknowledgment in the product documentation would be
+#     appreciated but is not required.
+#
+#     2. Altered source versions must be plainly marked as such, and must not be
+#     misrepresented as being the original software.
+#
+#     3. This notice may not be removed or altered from any source
+#     distribution.
+
+=head1 DESCRIPTION
+
+brief   Tiny SNTP client (behave as one-time SNTP client, but does not update system time)
+author  eel3
+date    2013/12/19
+
+note  perl 5.14.2 cygwin-32bit @ Windows 7 Ultimate 64bit SP1
+
+=head1 SYNOPSIS
+
+  sntpsend --host <server> [option]
+
+  Required:
+  -h, --host <FQDN|IP address>
+    NTP/SNTP server name (FQDN) or IP address. You should use FQDN.
+
+  Optional:
+  -b, --bind-sntp-port
+    Bind socket to SNTP port 123, default is false.
+  -p, --port <UDP port number>
+    NTP/SNTP server port (1 - 65535), default is 123.
+  -t, --timeout <seconds>
+    Receive timeout in second (>= 1), default is 10.
+
+=cut
+
+use 5.014;
+use strict;
+use warnings;
+
+use Getopt::Long qw/:config auto_help bundling no_ignore_case posix_default/;
+use IO::Select;
+use Pod::Usage qw/pod2usage/;
+use Socket;
+use Time::HiRes qw/gettimeofday/;
+
+use constant {
+	DEFAULT_BIND_PORT   => 123,
+	DEFAULT_SERVER_PORT => 123,
+	DEFAULT_TIMEOUT_SEC => 10,
+};
+
+sub error {
+	say STDERR @_;
+	exit 1;
+}
+
+sub decode_li {
+	my ($li) = @_;
+	(
+		'no warning',
+		'last minute has 61 seconds',
+		'last minute has 59 seconds',
+		'alarm condition (clock not synchronized)'
+	)[$li];
+}
+
+sub decode_mode {
+	my ($mode) = @_;
+	(
+		'reserved',
+		'symmetric active',
+		'symmetric passive',
+		'client',
+		'server',
+		'broadcast',
+		'reserved for NTP control message',
+		'reserved for private use'
+	)[$mode];
+}
+
+sub decode_stratum {
+	my ($stratum) = @_;
+
+	if ($stratum == 0) {
+		'kiss-o\'-death message';
+	} elsif ($stratum == 1) {
+		'primary reference';
+	} elsif (2 <= $stratum && $stratum <= 15) {
+		'secondary reference';
+	} elsif ($stratum == 16) {
+		'clock not synchronized';
+	} else {
+		'reserved';
+	}
+}
+
+sub decode_ri {
+	my ($ri, $stratum) = @_;
+
+	if (0 <= $stratum && $stratum <= 1) {
+		pack 'N', $ri;
+	} else {
+		inet_ntoa pack 'N', $ri;
+	}
+}
+
+sub dump_response {
+	my ($response) = @_;
+
+	my (
+		$li_vn_mode,
+		$stratum,
+		$poll,
+		$precision,
+		$root_delay,
+		$root_dispersion,
+		$reference_identifier,
+		$reference_timestamp_sec,
+		$reference_timestamp_frac,
+		$originate_timestamp_sec,
+		$originate_timestamp_frac,
+		$receive_timestamp_sec,
+		$receive_timestamp_frac,
+		$transmit_timestamp_sec,
+		$transmit_timestamp_frac,
+	) = unpack 'CCCCNNNNNNNNNNN', $response;
+
+	my $li = $li_vn_mode >> 6 & 0x03;
+	my $vn = $li_vn_mode >> 3 & 0x07;
+	my $mode = $li_vn_mode & 0x07;
+
+	print <<EOF;
+LI                      $li [@{[decode_li($li)]}]
+VN                      $vn
+Mode                    $mode [@{[decode_mode($mode)]}]
+Stratum                 $stratum [@{[decode_stratum($stratum)]}]
+Poll                    $poll
+Precision               $precision
+Root-Delay              $root_delay
+Root-Dispersion         $root_dispersion
+Reference-Identifier    $reference_identifier [@{[decode_ri($reference_identifier, $stratum)]}]
+Reference-Timestamp     $reference_timestamp_sec.$reference_timestamp_frac
+Originate-Timestamp     $originate_timestamp_sec.$originate_timestamp_frac
+Receive-Timestamp       $receive_timestamp_sec.$receive_timestamp_frac
+Transmit-Timestamp      $transmit_timestamp_sec.$transmit_timestamp_frac
+EOF
+}
+
+sub create_socket {
+	my ($bind_sntp_port) = @_;
+
+	my $socket;
+	socket $socket, PF_INET, SOCK_DGRAM, getprotobyname 'udp'
+		or die "socket: $!";
+
+	if ($bind_sntp_port) {
+		bind $socket, pack_sockaddr_in DEFAULT_BIND_PORT, INADDR_ANY
+			or die "bind: $!";
+	}
+
+	$socket;
+}
+
+sub sockaddr_in_equal {
+	my ($sa1, $sa2) = @_;
+
+	my ($sa1_port, $sa1_addr) = unpack_sockaddr_in $sa1;
+	my ($sa2_port, $sa2_addr) = unpack_sockaddr_in $sa2;
+
+	$sa1_addr eq $sa2_addr && $sa1_port == $sa2_port;
+}
+
+sub send_request {
+	my ($socket, $server) = @_;
+
+	my ($sec, $msec) = gettimeofday;
+	my $frac = ($msec / 500000) * 0x80000000;
+
+	my $req = pack 'CCCCNNNNNNNNNNN',
+	               0x23,            # LI (2), VN (3), Mode (3)
+	               0,               # Stratum (8)
+	               0,               # Poll (8)
+	               0,               # Precision (8)
+	               0,               # Root Delay (32)
+	               0,               # Root Dispersion (32)
+	               0,               # Reference Identifier (32)
+	               0, 0,            # Reference Timestamp (64)
+	               0, 0,            # Originate Timestamp (64)
+	               0, 0,            # Receive Timestamp (64)
+	               $sec, $frac;     # Transmit Timestamp (64)
+
+	send $socket, $req, 0, $server
+		or die "send: $!";
+}
+
+sub recv_response {
+	my ($socket, $server, $timeout_sec) = @_;
+
+	my $selector = IO::Select->new;
+	$selector->add($socket);
+
+	for (my $i = 0; $i < $timeout_sec; $i++) {
+		my @ready = $selector->can_read(1);
+		next unless @ready;
+
+		my $peer = recv $socket, my $buf, 68, 0
+			or die "recv: $!";
+		sockaddr_in_equal($peer, $server) or next;
+		length $buf == 48 or next;
+
+		dump_response($buf);
+		return;
+	}
+
+	say STDERR 'receive timeout';
+}
+
+sub main {
+	GetOptions(
+		\my %opt, qw/
+		bind-sntp-port|b
+		host|h=s
+		port|p=i
+		timeout|t=i
+	/) or pod2usage 1;
+
+	exists $opt{host}
+		or pod2usage 1;
+	my $ipaddr = inet_aton $opt{host}
+		or error("unknown host: $opt{host}");
+
+	$opt{port} = DEFAULT_SERVER_PORT unless exists $opt{port};
+	1 <= $opt{port} && $opt{port} <= 65535
+		or error("invalid port: $opt{port}");
+
+	$opt{timeout} = DEFAULT_TIMEOUT_SEC unless exists $opt{timeout};
+	$opt{timeout} >= 1
+		or error("invalid timeout: $opt{timeout}");
+
+	my $socket = create_socket(exists $opt{qw/bind-sntp-port/});
+	my $server = pack_sockaddr_in $opt{port}, $ipaddr;
+
+	send_request($socket, $server);
+	recv_response($socket, $server, $opt{timeout});
+
+	close $socket;
+
+	exit;
+}
+
+main();
