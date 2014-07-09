@@ -13,15 +13,16 @@ zlib License.
 Target environments
 -------------------
 
-Cygwin, Linux, Mac OS X, FreeBSD.
+Windows, Cygwin, Linux, Mac OS X, FreeBSD.
 
-sntpsend is Perl 5 script, and so probably works fine on other Unix-like environment.
+sntpsend is Perl 5 script, and so probably works fine on other OS.
 
 Set up
 ------
 
 1. Install Perl 5.14 or later.
 2. Put sntpsend in a directory registered in PATH.
+3. (Windows only) Put sntpsend.bat in a directory registered in PATH.
 
 Usage
 -----
