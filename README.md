@@ -32,7 +32,7 @@ Please check help message `sntpsend --help`
 Example
 -------
 
-```perl
+```sh
 # Test local NTP server (192.0.2.13:123)
 sntpsend --host 192.0.2.13
 
