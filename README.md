@@ -13,7 +13,7 @@ zlib License.
 Target environments
 -------------------
 
-Windows, Cygwin, Linux, Mac OS X, FreeBSD.
+Windows, Cygwin, Linux, macOS, FreeBSD.
 
 sntpsend is Perl 5 script, and so probably works fine on other OS.
 
