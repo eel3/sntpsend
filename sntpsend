@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # -*- coding: utf-8-unix -*-
 # vim:fileencoding=utf-8:ff=unix
-# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.0.1.20200909
+# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.0.2.20200909
 
 # Copyright (c) 2014 eel3
 #
@@ -69,6 +69,12 @@ use constant {
 sub error {
 	say STDERR @_;
 	exit 1;
+}
+
+sub ntp_time_from_unix_time {
+	my ($sec) = @_;
+
+	$sec + 2208988800;
 }
 
 sub decode_li {
@@ -191,6 +197,7 @@ sub send_request {
 	my ($socket, $server) = @_;
 
 	my ($sec, $usec) = gettimeofday;
+	$sec = ntp_time_from_unix_time($sec);
 	my $frac = ($usec / 500000) * 0x80000000;
 
 	my $req = pack 'CCCCNNNNNNNNNNN',
