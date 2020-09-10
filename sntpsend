@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # -*- coding: utf-8-unix -*-
 # vim:fileencoding=utf-8:ff=unix
-# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.0.2.20200909
+# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.1.0.20200909
 
 # Copyright (c) 2014 eel3
 #
@@ -77,6 +77,24 @@ sub ntp_time_from_unix_time {
 	$sec + 2208988800;
 }
 
+sub msec_from_tv {
+	my ($sec, $usec) = @_;
+
+	$sec * 1000 + $usec / 1000;
+}
+
+sub frac_from_usec {
+	my ($usec) = @_;
+
+	($usec / 500000) * 0x80000000;
+}
+
+sub usec_from_frac {
+	my ($frac) = @_;
+
+	$frac / 0x80000000 * 500000;
+}
+
 sub decode_li {
 	my ($li) = @_;
 	(
@@ -130,6 +148,8 @@ sub decode_ri {
 sub dump_response {
 	my ($response) = @_;
 
+	my ($sec, $usec) = gettimeofday;
+
 	my (
 		$li_vn_mode,
 		$stratum,
@@ -167,6 +187,13 @@ Originate-Timestamp     $originate_timestamp_sec.$originate_timestamp_frac
 Receive-Timestamp       $receive_timestamp_sec.$receive_timestamp_frac
 Transmit-Timestamp      $transmit_timestamp_sec.$transmit_timestamp_frac
 EOF
+
+	my $t1 = msec_from_tv($originate_timestamp_sec, usec_from_frac($originate_timestamp_frac));
+	my $t2 = msec_from_tv($receive_timestamp_sec,   usec_from_frac($receive_timestamp_frac));
+	my $t3 = msec_from_tv($transmit_timestamp_sec,  usec_from_frac($transmit_timestamp_frac));
+	my $t4 = msec_from_tv(ntp_time_from_unix_time($sec), $usec);
+	my $rtt = ($t4 - $t1) - ($t3 - $t2);
+	say "\nRTT(msec) --> $rtt";
 }
 
 sub create_socket {
@@ -198,7 +225,7 @@ sub send_request {
 
 	my ($sec, $usec) = gettimeofday;
 	$sec = ntp_time_from_unix_time($sec);
-	my $frac = ($usec / 500000) * 0x80000000;
+	my $frac = frac_from_usec($usec);
 
 	my $req = pack 'CCCCNNNNNNNNNNN',
 	               0x23,            # LI (2), VN (3), Mode (3)
