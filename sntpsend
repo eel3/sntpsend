@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # -*- coding: utf-8-unix -*-
 # vim:fileencoding=utf-8:ff=unix
-# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.1.0.20200909
+# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.1.0.20200910
 
 # Copyright (c) 2014 eel3
 #
@@ -28,7 +28,7 @@
 
 brief   Tiny SNTP client (behave as one-time SNTP client, but does not update system time)
 author  eel3
-date    2020-09-09
+date    2020-09-10
 
 note  perl 5.26.3 x86_64-cygwin-threads-multi @ Windows 10 Version 1909 64bit
 
@@ -290,6 +290,9 @@ sub main {
 
 	my $socket = create_socket(exists $opt{qw/bind-sntp-port/});
 	my $server = pack_sockaddr_in $opt{port}, $ipaddr;
+
+	my $host = inet_ntoa $ipaddr;
+	say "Request to $host:$opt{port}\n";
 
 	send_request($socket, $server);
 	recv_response($socket, $server, $opt{timeout});
