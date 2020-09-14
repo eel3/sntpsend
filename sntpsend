@@ -74,7 +74,10 @@ sub error {
 sub ntp_time_from_unix_time {
 	my ($sec) = @_;
 
-	$sec + 2208988800;
+	# UNIX Epoch time : 1970-01-01 00:00:00 UTC
+	# NTP  epoch time : 1900-01-01 00:00:00 UTC
+
+	$sec + 2208988800;  # 70 years in seconds (without leap seconds)
 }
 
 sub msec_from_tv {
