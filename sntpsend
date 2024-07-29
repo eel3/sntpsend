@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # -*- coding: utf-8-unix -*-
 # vim:fileencoding=utf-8:ff=unix
-# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.1.1.20240729
+# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.2.0.20240729
 
 # Copyright (c) 2014 eel3
 #
@@ -138,6 +138,18 @@ sub decode_stratum {
 	}
 }
 
+sub decode_root_delay {
+	my ($root_delay) = @_;
+
+	$root_delay / 0x10000;
+}
+
+sub decode_root_dispersion {
+	my ($root_dispersion) = @_;
+
+	$root_dispersion / 0x10000;
+}
+
 sub decode_ri {
 	my ($ri, $stratum) = @_;
 
@@ -182,8 +194,8 @@ Mode                    $mode [@{[decode_mode($mode)]}]
 Stratum                 $stratum [@{[decode_stratum($stratum)]}]
 Poll                    $poll
 Precision               $precision
-Root-Delay              $root_delay
-Root-Dispersion         $root_dispersion
+Root-Delay              $root_delay [@{[decode_root_delay($root_delay)]}]
+Root-Dispersion         $root_dispersion [@{[decode_root_dispersion($root_dispersion)]}]
 Reference-Identifier    $reference_identifier [@{[decode_ri($reference_identifier, $stratum)]}]
 Reference-Timestamp     $reference_timestamp_sec.$reference_timestamp_frac
 Originate-Timestamp     $originate_timestamp_sec.$originate_timestamp_frac
