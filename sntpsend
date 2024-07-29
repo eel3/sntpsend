@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 # -*- coding: utf-8-unix -*-
 # vim:fileencoding=utf-8:ff=unix
-# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.1.0.20200910
+# @(#) Tiny SNTP client (behave as one-time SNTP client, but does not update system time). Version 1.1.1.20240729
 
 # Copyright (c) 2014 eel3
 #
@@ -28,9 +28,9 @@
 
 brief   Tiny SNTP client (behave as one-time SNTP client, but does not update system time)
 author  eel3
-date    2020-09-10
+date    2024-07-29
 
-note  perl 5.26.3 x86_64-cygwin-threads-multi @ Windows 10 Version 1909 64bit
+note  perl 5.34.0 x86_64-linux-gnu-thread-multi @ Ubuntu 22.04.4 LTS 64bit
 
 =head1 SYNOPSIS
 
@@ -169,7 +169,7 @@ sub dump_response {
 		$receive_timestamp_frac,
 		$transmit_timestamp_sec,
 		$transmit_timestamp_frac,
-	) = unpack 'CCCCNNNNNNNNNNN', $response;
+	) = unpack 'CCCcNNNNNNNNNNN', $response;
 
 	my $li = $li_vn_mode >> 6 & 0x03;
 	my $vn = $li_vn_mode >> 3 & 0x07;
@@ -230,7 +230,7 @@ sub send_request {
 	$sec = ntp_time_from_unix_time($sec);
 	my $frac = frac_from_usec($usec);
 
-	my $req = pack 'CCCCNNNNNNNNNNN',
+	my $req = pack 'CCCcNNNNNNNNNNN',
 	               0x23,            # LI (2), VN (3), Mode (3)
 	               0,               # Stratum (8)
 	               0,               # Poll (8)
