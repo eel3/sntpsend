@@ -28,9 +28,9 @@
 
 brief   Tiny SNTP client (behave as one-time SNTP client, but does not update system time)
 author  eel3
-date    2024-07-29
+date    2024-09-22
 
-note  perl 5.34.0 x86_64-linux-gnu-thread-multi @ Ubuntu 22.04.4 LTS 64bit
+note  perl 5.34.0 x86_64-linux-gnu-thread-multi @ Ubuntu 22.04.5 LTS 64bit
 
 =head1 SYNOPSIS
 
@@ -197,10 +197,10 @@ Precision               $precision
 Root-Delay              $root_delay [@{[decode_root_delay($root_delay)]}]
 Root-Dispersion         $root_dispersion [@{[decode_root_dispersion($root_dispersion)]}]
 Reference-Identifier    $reference_identifier [@{[decode_ri($reference_identifier, $stratum)]}]
-Reference-Timestamp     $reference_timestamp_sec.$reference_timestamp_frac
-Originate-Timestamp     $originate_timestamp_sec.$originate_timestamp_frac
-Receive-Timestamp       $receive_timestamp_sec.$receive_timestamp_frac
-Transmit-Timestamp      $transmit_timestamp_sec.$transmit_timestamp_frac
+Reference-Timestamp     $reference_timestamp_sec.@{[sprintf('%09d', usec_from_frac($reference_timestamp_frac) * 1000)]}
+Originate-Timestamp     $originate_timestamp_sec.@{[sprintf('%09d', usec_from_frac($originate_timestamp_frac) * 1000)]}
+Receive-Timestamp       $receive_timestamp_sec.@{[sprintf('%09d', usec_from_frac($receive_timestamp_frac) * 1000)]}
+Transmit-Timestamp      $transmit_timestamp_sec.@{[sprintf('%09d', usec_from_frac($transmit_timestamp_frac) * 1000)]}
 EOF
 
 	my $t1 = msec_from_tv($originate_timestamp_sec, usec_from_frac($originate_timestamp_frac));
